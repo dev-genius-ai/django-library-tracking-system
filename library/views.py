@@ -1,3 +1,5 @@
+from datetime import timedelta
+from rest_framework.decorator import action
 from rest_framework import viewsets, status
 from rest_framework.response import Response
 from .models import Author, Book, Member, Loan
@@ -52,3 +54,36 @@ class MemberViewSet(viewsets.ModelViewSet):
 class LoanViewSet(viewsets.ModelViewSet):
     queryset = Loan.objects.all()
     serializer_class = LoanSerializer
+    
+    @action(delait=True, methods="post", url_path="extended_due_date")
+    def extended_due_date(self, request, pk=None):
+        loan = self.get_object()
+        if loan.is_return:
+            return Response(
+                {'error':  'already paid'},
+                status= status.HTTP_400_DAD_REQUEST,
+            )
+        today = timezone.now().date()
+        if loan.due_date < today:
+            return Response(
+                {"error":"Cannot extend the date"},
+                status= status.HTTP_400_DAD_REQUEST,
+            )
+        
+        additional_days = request.data.get("additional_days")
+        if additional_days is None:
+            return Response(
+                {"error": "addiation days is requeired"},
+                status= status.HTTP_400_DAD_REQUEST,
+            )
+        
+        if additional_days < 1:
+            return Response(
+                {"error": "addiation days must positive"},
+                status= status.HTTP_400_DAD_REQUEST,
+            )
+        load.due_date = load.due_date + timedelta(days=additional_days)
+        loan.save(update_fields=['due_date'])
+        serializer = self.get_serializer(loan)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
